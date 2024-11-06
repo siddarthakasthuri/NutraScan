@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutraScan</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #BBCBCD;
+        }
+
+        h1 {
+            text-align: center;
+            color: #000000;
+            margin-top: 30px;
+            font-family: 'Courier New';
+            text-decoration: underline;
+        }
+
+        #container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 30px;
+        }
+
+        #video {
+            width: 640px;
+            height: 480px;
+            border: 2px solid #ffffff;
+            border-radius: 5px;
+        }
+
+        #capture {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        #capture:hover {
+            background-color: #45a049;
+        }
+
+        #detectedItems {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>NutraScan</h1>
+    <div id="container">
+        <video id="video" autoplay></video>
+        <button id="capture">Capture</button>
+    </div>
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+    <div id="detectedItems"></div>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const captureButton = document.getElementById('capture');
+        const detectedItemsDiv = document.getElementById('detectedItems');
+
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error('Error accessing webcam: ', err);
+            }
+        }
+
+        function captureImage() {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = canvas.toDataURL('image/jpeg');
+            sendToServer(imageData);
+        }
+
+        function sendToServer(imageData) {
+            fetch('/upload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'image=' + encodeURIComponent(imageData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.food_item) {
+                    displayDetectedItem(data.food_item, data.calorie_count.toFixed(2), data.food_ingredients);
+                } else {
+                    displayDetectedItem("No food item detected", 0);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function displayDetectedItem(item, calorieCount, ingredients) {
+            detectedItemsDiv.innerHTML = `<strong>Detected Food Item:</strong> ${item} <br> <strong>Calorie Count:</strong> ${calorieCount} <br> <strong>Ingredients:</strong> ${ingredients}`;
+        }
+
+        window.onload = () => {
+            initCamera().catch(console.error);
+            captureButton.onclick = captureImage;
+        };
+    </script>
+</body>
+</html>
